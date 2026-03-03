@@ -97,6 +97,17 @@ st.set_page_config(
     layout="wide"
 )
 
+# =========================
+# Proteção simples por senha
+# =========================
+APP_PASSWORD = os.getenv("APP_PASSWORD") or st.secrets.get("APP_PASSWORD", None)
+
+if APP_PASSWORD:
+    pwd = st.text_input("Senha de acesso", type="password")
+    if pwd != APP_PASSWORD:
+        st.warning("Digite a senha correta para acessar.")
+        st.stop()
+
 import os
 
 logo_path = os.path.join("assets", "logo.png")
