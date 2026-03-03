@@ -117,7 +117,7 @@ if APP_PASSWORD and not st.session_state["auth_ok"]:
         else:
             st.error("Senha incorreta. Tente novamente.")
     st.stop()
-    
+
 import os
 
 logo_path = os.path.join("assets", "logo.png")
@@ -462,33 +462,31 @@ if view_mode == "Lista":
         badge = badge_html(kind)
         bar = bar_color(kind)
 
-        left, right = st.columns([7, 1], vertical_alignment="top")
-
-        with left:
-            st.markdown(
-                f"""
-                <div class="event-card">
-                  <div class="wrap">
-                    <div class="bar" style="{bar}"></div>
-                    <div class="event-left">
-                      <div class="event-title">
-                        <span class="mono">{e["data_str"]}</span>
-                        {badge}
-                      </div>
-                      <div class="event-title">
-  {e["tema"] or "(sem tema)"}
-  {badge}
-</div>
-<div class="event-meta"><span class="mono">🗓 {e["data_str"]}</span></div>
-<div class="event-meta">👤 <b>Cliente:</b> {e["cliente"] or "-"}</div>
-<div class="event-meta muted">🎁 <b>Pacote:</b> {e["pacote"] or "-"}</div>
-<div class="event-meta muted">📍 <b>Endereço:</b> {e["endereco"] or "-"}</div>
+        st.markdown(
+            f"""
+            <div class="event-card">
+              <div class="wrap">
+                <div class="bar" style="{bar}"></div>
+                <div class="event-left">
+                  <div class="event-title">
+                    <span class="mono">{e["data_str"]}</span>
+                    {badge}
                   </div>
+                  <div class="event-meta"><b>Tema:</b> {e["tema"] or "-"}</div>
+                  <div class="event-meta"><b>Cliente:</b> {e["cliente"] or "-"}</div>
+                  <div class="event-meta muted"><b>Pacote:</b> {e["pacote"] or "-"} &nbsp;|&nbsp; <b>Endereço:</b> {e["endereco"] or "-"}</div>
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
+        # Botão sempre visível (ótimo no celular)
+        if st.button("🔎 Ver detalhes", key=f"ver_{e['id']}"):
+            st.session_state["selected_id"] = e["id"]
+            st.rerun()
+            
     with right:
         st.write("")  # dá um respiro
         if st.button("🔎 Ver", key=f"ver_{e['id']}"):
