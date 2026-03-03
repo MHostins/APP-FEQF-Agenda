@@ -98,16 +98,26 @@ st.set_page_config(
 )
 
 # =========================
-# Proteção simples por senha
+# Proteção simples por senha (com sessão)
 # =========================
 APP_PASSWORD = os.getenv("APP_PASSWORD") or st.secrets.get("APP_PASSWORD", None)
 
-if APP_PASSWORD:
-    pwd = st.text_input("Senha de acesso", type="password")
-    if pwd != APP_PASSWORD:
-        st.warning("Digite a senha correta para acessar.")
-        st.stop()
+if "auth_ok" not in st.session_state:
+    st.session_state["auth_ok"] = False
 
+if APP_PASSWORD and not st.session_state["auth_ok"]:
+    st.subheader("Acesso restrito")
+    pwd = st.text_input("Chave de acesso", type="password", key="feqf_access_key", autocomplete="off")
+
+    if st.button("Entrar"):
+        if pwd == APP_PASSWORD:
+            st.session_state["auth_ok"] = True
+            st.success("Acesso liberado ✅")
+            st.rerun()
+        else:
+            st.error("Senha incorreta. Tente novamente.")
+    st.stop()
+    
 import os
 
 logo_path = os.path.join("assets", "logo.png")
