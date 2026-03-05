@@ -240,9 +240,9 @@ if not date_prop_name:
 # Campos do seu app
 PROP_TEMA = "tema"         # title
 PROP_CLIENTE = "cliente"   # rich_text
+PROP_QTD = "número de crianças"
 PROP_PACOTE = "pacote"     # multi_select
 PROP_ENDERECO = "detalhes" # rich_text (você usará como endereço)
-PROP_QTD = "número de crianças"
 
 st.caption(f"Campo de data detectado: **{date_prop_name}**")
 
