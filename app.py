@@ -242,6 +242,7 @@ PROP_TEMA = "tema"         # title
 PROP_CLIENTE = "cliente"   # rich_text
 PROP_PACOTE = "pacote"     # multi_select
 PROP_ENDERECO = "detalhes" # rich_text (você usará como endereço)
+PROP_QTD = "número de crianças"
 
 st.caption(f"Campo de data detectado: **{date_prop_name}**")
 
@@ -258,15 +259,9 @@ def fetch_all_future_events(max_pages: int = 20) -> List[Dict[str, Any]]:
     pages = 0
 
     while True:
-        payload: Dict[str, Any] = {
-            "page_size": 100,
-            "filter": {
-                "property": date_prop_name,
-                "date": {"on_or_after": today_iso},
-            },
-            "sorts": [
-                {"property": date_prop_name, "direction": "ascending"},
-            ],
+        payload = {
+    "page_size": 100,
+    "sorts": [{"property": date_prop_name, "direction": "ascending"}],
         }
         if start_cursor:
             payload["start_cursor"] = start_cursor
@@ -316,16 +311,19 @@ for item in raw_results:
     cliente = rt_to_text((props.get(PROP_CLIENTE, {}) or {}).get("rich_text", []))
     pacote = multi_select_to_text((props.get(PROP_PACOTE, {}) or {}).get("multi_select", []))
     endereco = rt_to_text((props.get(PROP_ENDERECO, {}) or {}).get("rich_text", []))
+    qtd = (props.get(PROP_QTD, {}) or {}).get("number")
 
     events.append({
         "id": page_id,
         "dt": dt_start,
         "data_str": format_dt_br(dt_start),
         "tema": tema,
+        "qtd": qtd,
         "cliente": cliente,
         "pacote": pacote,
         "endereco": endereco,
         "raw": item,
+        
     })
 
 # Ordenação final (após a ordenação do Notion, refinamos aqui)
@@ -346,16 +344,22 @@ with col1:
 with col2:
     view_mode = st.radio("Visualização", ["Lista", "Blocos horizontais"], horizontal=True)
 
+base_list = events_future  # padrão
+
 if search:
+    base_list = events_all  # se pesquisar, inclui passados também
+
     s = safe_lower(search)
-    events = [
-        e for e in events
+    base_list = [
+        e for e in base_list
         if s in safe_lower(e["data_str"])
         or s in safe_lower(e["tema"])
         or s in safe_lower(e["cliente"])
         or s in safe_lower(e["pacote"])
         or s in safe_lower(e["endereco"])
     ]
+
+events = base_list
 
     # =========================
 # Painel-resumo (contagem por categoria)
@@ -475,6 +479,8 @@ if view_mode == "Lista":
                   <div class="event-meta"><b>Tema:</b> {e["tema"] or "-"}</div>
                   <div class="event-meta"><b>Cliente:</b> {e["cliente"] or "-"}</div>
                   <div class="event-meta muted"><b>Pacote:</b> {e["pacote"] or "-"} &nbsp;|&nbsp; <b>Endereço:</b> {e["endereco"] or "-"}</div>
+                  <div class="event-meta muted"><b>Qtd:</b> {e["qtd"] if e["qtd"] is not None else "-"} &nbsp;|&nbsp; <b>Pacote:</b> {e["pacote"] or "-"} &nbsp;|&nbsp; <b>Endereço:</b> {e["endereco"] or "-"}</div>
+                  st.write(f"**Quantidade (crianças):** {event['qtd'] if event['qtd'] is not None else '-'}")
                 </div>
               </div>
             </div>
