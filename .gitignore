@@ -4,3 +4,4 @@ __pycache__/
 notes_store.json
 *.pyc
 .DS_Store
+.streamlit/secrets.toml

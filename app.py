@@ -11,6 +11,10 @@ load_dotenv()
 
 NOTES_FILE = "notes_store.json"
 
+
+# =========================
+# Utils (notes)
+# =========================
 def load_notes() -> Dict[str, str]:
     if not os.path.exists(NOTES_FILE):
         return {}
@@ -20,23 +24,35 @@ def load_notes() -> Dict[str, str]:
     except Exception:
         return {}
 
+
 def save_notes(notes: Dict[str, str]) -> None:
     with open(NOTES_FILE, "w", encoding="utf-8") as f:
         json.dump(notes, f, ensure_ascii=False, indent=2)
 
+
+# =========================
+# Utils (Notion props)
+# =========================
 def rt_to_text(rich_text: List[Dict[str, Any]]) -> str:
     return "".join([x.get("plain_text", "") for x in (rich_text or [])]).strip()
 
+
 def title_to_text(title: List[Dict[str, Any]]) -> str:
     return "".join([x.get("plain_text", "") for x in (title or [])]).strip()
+
 
 def multi_select_to_text(ms: List[Dict[str, Any]]) -> str:
     names = [x.get("name", "") for x in (ms or []) if x.get("name")]
     return ", ".join(names).strip()
 
+
 def safe_lower(s: str) -> str:
     return (s or "").lower().strip()
 
+
+# =========================
+# UI helpers
+# =========================
 def classify_event(dt: datetime) -> str:
     """Retorna: today | tomorrow | week | future"""
     d = dt.date()
@@ -50,6 +66,7 @@ def classify_event(dt: datetime) -> str:
         return "week"
     return "future"
 
+
 def badge_html(kind: str) -> str:
     if kind == "today":
         return '<span class="event-badge b-today">HOJE</span>'
@@ -58,6 +75,7 @@ def badge_html(kind: str) -> str:
     if kind == "week":
         return '<span class="event-badge b-week">PRÓX. 7 DIAS</span>'
     return '<span class="event-badge b-future">FUTURO</span>'
+
 
 def bar_color(kind: str) -> str:
     if kind == "today":
@@ -68,25 +86,23 @@ def bar_color(kind: str) -> str:
         return "background: rgba(0,128,0,0.70);"
     return "background: rgba(0,0,0,0.22);"
 
+
 def parse_iso_datetime(iso_str: str) -> Optional[datetime]:
     if not iso_str:
         return None
-
     try:
-        # Se vier com hora e fuso (ex.: ...Z), vira aware
         if "T" in iso_str:
             dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-            # remove o fuso, deixando "naive" para comparar/ordenar sem erro
             return dt.replace(tzinfo=None)
-
-        # Se vier só data (ex.: 2026-03-07), fica 00:00
         dt = datetime.fromisoformat(iso_str)
         return dt.replace(tzinfo=None)
-
     except Exception:
         return None
+
+
 def format_dt_br(dt: datetime) -> str:
     return dt.strftime("%d/%m/%Y %H:%M")
+
 
 # =========================
 # Config
@@ -94,11 +110,11 @@ def format_dt_br(dt: datetime) -> str:
 st.set_page_config(
     page_title="Agenda FEQF",
     page_icon="🗓️",
-    layout="wide"
+    layout="wide",
 )
 
 # =========================
-# Proteção simples por senha (com sessão)
+# Proteção por senha (com sessão)
 # =========================
 APP_PASSWORD = os.getenv("APP_PASSWORD") or st.secrets.get("APP_PASSWORD", None)
 
@@ -107,7 +123,9 @@ if "auth_ok" not in st.session_state:
 
 if APP_PASSWORD and not st.session_state["auth_ok"]:
     st.subheader("Acesso restrito")
-    pwd = st.text_input("Chave de acesso", type="password", key="feqf_access_key", autocomplete="off")
+    pwd = st.text_input(
+        "Chave de acesso", type="password", key="feqf_access_key", autocomplete="off"
+    )
 
     if st.button("Entrar"):
         if pwd == APP_PASSWORD:
@@ -118,8 +136,9 @@ if APP_PASSWORD and not st.session_state["auth_ok"]:
             st.error("Senha incorreta. Tente novamente.")
     st.stop()
 
-import os
-
+# =========================
+# Logo + título
+# =========================
 logo_path = os.path.join("assets", "logo.png")
 
 if os.path.exists(logo_path):
@@ -133,6 +152,9 @@ else:
 
 st.title("App Agenda FEQF")
 
+# =========================
+# CSS
+# =========================
 st.markdown(
     """
     <style>
@@ -196,14 +218,17 @@ st.markdown(
       .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
+# =========================
+# Secrets / Env
+# =========================
 token = os.getenv("NOTION_TOKEN") or st.secrets.get("NOTION_TOKEN", None)
-database_id = os.getenv("NOTION_DATABASE_ID") or st.secrets.get ("NOTION_DATABASE_ID", None)
+database_id = os.getenv("NOTION_DATABASE_ID") or st.secrets.get("NOTION_DATABASE_ID", None)
 
 if not token or not database_id:
-    st.error("Faltou NOTION_TOKEN ou NOTION_DATABASE_ID no arquivo .env")
+    st.error("Faltou NOTION_TOKEN ou NOTION_DATABASE_ID no arquivo .env / secrets.")
     st.stop()
 
 headers = {
@@ -213,7 +238,7 @@ headers = {
 }
 
 # =========================
-# 1) Descobrir o campo de Data (tipo date) pela estrutura da database
+# 1) Descobrir o campo de Data (tipo date)
 # =========================
 db_url = f"https://api.notion.com/v1/databases/{database_id}"
 db_resp = requests.get(db_url, headers=headers)
@@ -237,31 +262,31 @@ if not date_prop_name:
     st.error("Não encontrei nenhum campo do tipo 'date' na sua database.")
     st.stop()
 
-# Campos do seu app
-PROP_TEMA = "tema"         # title
-PROP_CLIENTE = "cliente"   # rich_text
-PROP_QTD = "número de crianças"
-PROP_PACOTE = "pacote"     # multi_select
-PROP_ENDERECO = "detalhes" # rich_text (você usará como endereço)
+# Campos do seu app (nomes no Notion)
+PROP_TEMA = "tema"               # title
+PROP_CLIENTE = "cliente"         # rich_text
+PROP_QTD = "número de crianças"  # number
+PROP_PACOTE = "pacote"           # multi_select
+PROP_ENDERECO = "detalhes"       # rich_text (endereço)
 
 st.caption(f"Campo de data detectado: **{date_prop_name}**")
 
 # =========================
-# 2) Buscar eventos do Notion já filtrando "hoje em diante" + paginação
+# 2) Buscar eventos do Notion + paginação
+#    (aqui estamos trazendo TODOS; a filtragem de futuro/pesquisa é feita no app)
 # =========================
-today_iso = date.today().isoformat()
-
 query_url = f"https://api.notion.com/v1/databases/{database_id}/query"
 
-def fetch_all_future_events(max_pages: int = 20) -> List[Dict[str, Any]]:
+
+def fetch_all_events(max_pages: int = 50) -> List[Dict[str, Any]]:
     results: List[Dict[str, Any]] = []
     start_cursor = None
     pages = 0
 
     while True:
-        payload = {
-    "page_size": 100,
-    "sorts": [{"property": date_prop_name, "direction": "ascending"}],
+        payload: Dict[str, Any] = {
+            "page_size": 100,
+            "sorts": [{"property": date_prop_name, "direction": "ascending"}],
         }
         if start_cursor:
             payload["start_cursor"] = start_cursor
@@ -283,15 +308,16 @@ def fetch_all_future_events(max_pages: int = 20) -> List[Dict[str, Any]]:
 
     return results
 
-with st.spinner("Buscando eventos (hoje em diante) no Notion..."):
+
+with st.spinner("Buscando eventos no Notion..."):
     try:
-        raw_results = fetch_all_future_events()
+        raw_results = fetch_all_events()
     except Exception as e:
         st.error("Erro ao consultar o Notion ❌")
         st.write(str(e))
         st.stop()
 
-st.success(f"{len(raw_results)} eventos futuros encontrados ✅")
+st.success(f"{len(raw_results)} eventos carregados ✅")
 
 # =========================
 # Transformar em lista limpa
@@ -313,45 +339,59 @@ for item in raw_results:
     endereco = rt_to_text((props.get(PROP_ENDERECO, {}) or {}).get("rich_text", []))
     qtd = (props.get(PROP_QTD, {}) or {}).get("number")
 
-    events.append({
-        "id": page_id,
-        "dt": dt_start,
-        "data_str": format_dt_br(dt_start),
-        "tema": tema,
-        "qtd": qtd,
-        "cliente": cliente,
-        "pacote": pacote,
-        "endereco": endereco,
-        "raw": item,
-        
-    })
+    events.append(
+        {
+            "id": page_id,
+            "dt": dt_start,
+            "data_str": format_dt_br(dt_start),
+            "tema": tema,
+            "qtd": qtd,
+            "cliente": cliente,
+            "pacote": pacote,
+            "endereco": endereco,
+            "raw": item,
+        }
+    )
 
-# Ordenação final (após a ordenação do Notion, refinamos aqui)
-events.sort(key=lambda e: (
-    e["dt"],
-    safe_lower(e["tema"]),
-    safe_lower(e["pacote"]),
-    safe_lower(e["endereco"]),
-    safe_lower(e["cliente"]),
-))
+# Ordenação final
+events.sort(
+    key=lambda e: (
+        e["dt"],
+        safe_lower(e["tema"]),
+        safe_lower(e["pacote"]),
+        safe_lower(e["endereco"]),
+        safe_lower(e["cliente"]),
+    )
+)
+
+# =========================
+# Separação: todos vs futuros
+# =========================
+events_all = events[:]  # todos (passado + futuro)
+today_local = date.today()
+events_future = [e for e in events_all if e.get("dt") and e["dt"].date() >= today_local]
 
 # =========================
 # Busca + visualização
 # =========================
 col1, col2 = st.columns([3, 1])
 with col1:
-    search = st.text_input("Busca (data, tema, cliente)", placeholder="Ex.: 10/03, casamento, Ana...")
+    search = st.text_input(
+        "Busca (data, tema, cliente)", placeholder="Ex.: 10/03, casamento, Ana..."
+    )
 with col2:
     view_mode = st.radio("Visualização", ["Lista", "Blocos horizontais"], horizontal=True)
 
-base_list = events_future  # padrão
+# Padrão: só futuros
+base_list = events_future
 
+# Se pesquisar: permitir achar passados também
 if search:
-    base_list = events_all  # se pesquisar, inclui passados também
-
+    base_list = events_all
     s = safe_lower(search)
     base_list = [
-        e for e in base_list
+        e
+        for e in base_list
         if s in safe_lower(e["data_str"])
         or s in safe_lower(e["tema"])
         or s in safe_lower(e["cliente"])
@@ -361,23 +401,17 @@ if search:
 
 events = base_list
 
-    # =========================
+# =========================
 # Painel-resumo (contagem por categoria)
 # =========================
 counts = {"today": 0, "tomorrow": 0, "week": 0, "future": 0}
 for e in events:
     counts[classify_event(e["dt"])] += 1
 
-# =========================
-# Painel-resumo estilizado
-# =========================
-counts = {"today": 0, "tomorrow": 0, "week": 0, "future": 0}
-for e in events:
-    counts[classify_event(e["dt"])] += 1
+colA, colB, colC, colD = st.columns(4)
 
-col1, col2, col3, col4 = st.columns(4)
 
-def summary_card(title, value, color):
+def summary_card(title: str, value: int, color: str) -> None:
     st.markdown(
         f"""
         <div style="
@@ -392,21 +426,24 @@ def summary_card(title, value, color):
             <div style="font-size:24px; margin-top:6px;">{value}</div>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
-with col1:
+
+with colA:
     summary_card("HOJE", counts["today"], "rgba(255,0,0,0.08)")
-with col2:
+with colB:
     summary_card("AMANHÃ", counts["tomorrow"], "rgba(255,165,0,0.15)")
-with col3:
+with colC:
     summary_card("PRÓX. 7 DIAS", counts["week"], "rgba(0,128,0,0.12)")
-with col4:
+with colD:
     summary_card("FUTURO", counts["future"], "rgba(0,0,0,0.05)")
+
 if counts["today"] > 0:
     st.warning(f"🔴 Você tem {counts['today']} evento(s) HOJE.")
 elif counts["tomorrow"] > 0:
     st.info(f"🟠 Amanhã: {counts['tomorrow']} evento(s).")
+
 st.divider()
 
 # =========================
@@ -417,6 +454,7 @@ notes = load_notes()
 if "selected_id" not in st.session_state:
     st.session_state["selected_id"] = None
 
+
 def show_details(event: Dict[str, Any]) -> None:
     st.subheader("Detalhes do Evento")
     st.write(f"**Data/Hora:** {event['data_str']}")
@@ -424,6 +462,7 @@ def show_details(event: Dict[str, Any]) -> None:
     st.write(f"**Cliente:** {event['cliente'] or '-'}")
     st.write(f"**Pacote:** {event['pacote'] or '-'}")
     st.write(f"**Endereço:** {event['endereco'] or '-'}")
+    st.write(f"**Quantidade (crianças):** {event['qtd'] if event['qtd'] is not None else '-'}")
 
     st.divider()
     st.subheader("Observações (salvas no seu computador)")
@@ -441,13 +480,15 @@ def show_details(event: Dict[str, Any]) -> None:
             st.session_state["selected_id"] = None
             st.rerun()
 
+
 selected = st.session_state["selected_id"]
 if selected:
-    ev = next((x for x in events if x["id"] == selected), None)
+    # Procurar SEMPRE em events_all (para não "sumir" por causa de busca)
+    ev = next((x for x in events_all if x["id"] == selected), None)
     if ev:
         show_details(ev)
     else:
-        st.warning("Evento não encontrado (talvez por causa da busca).")
+        st.warning("Evento não encontrado.")
         if st.button("⬅ Voltar"):
             st.session_state["selected_id"] = None
             st.rerun()
@@ -457,7 +498,7 @@ if selected:
 # Render
 # =========================
 if not events:
-    st.info("Nenhum evento futuro para exibir com o filtro/busca atual.")
+    st.info("Nenhum evento para exibir com o filtro/busca atual.")
     st.stop()
 
 if view_mode == "Lista":
@@ -478,24 +519,16 @@ if view_mode == "Lista":
                   </div>
                   <div class="event-meta"><b>Tema:</b> {e["tema"] or "-"}</div>
                   <div class="event-meta"><b>Cliente:</b> {e["cliente"] or "-"}</div>
-                  <div class="event-meta muted"><b>Pacote:</b> {e["pacote"] or "-"} &nbsp;|&nbsp; <b>Endereço:</b> {e["endereco"] or "-"}</div>
                   <div class="event-meta muted"><b>Qtd:</b> {e["qtd"] if e["qtd"] is not None else "-"} &nbsp;|&nbsp; <b>Pacote:</b> {e["pacote"] or "-"} &nbsp;|&nbsp; <b>Endereço:</b> {e["endereco"] or "-"}</div>
-                  st.write(f"**Quantidade (crianças):** {event['qtd'] if event['qtd'] is not None else '-'}")
                 </div>
               </div>
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
         # Botão sempre visível (ótimo no celular)
         if st.button("🔎 Ver detalhes", key=f"ver_{e['id']}"):
-            st.session_state["selected_id"] = e["id"]
-            st.rerun()
-            
-    with right:
-        st.write("")  # dá um respiro
-        if st.button("🔎 Ver", key=f"ver_{e['id']}"):
             st.session_state["selected_id"] = e["id"]
             st.rerun()
 
@@ -521,6 +554,7 @@ else:
                         <div class="event-left">
                           <div class="event-meta"><b>Tema:</b> {e["tema"] or "-"}</div>
                           <div class="event-meta"><b>Cliente:</b> {e["cliente"] or "-"}</div>
+                          <div class="event-meta muted"><b>Qtd:</b> {e["qtd"] if e["qtd"] is not None else "-"}</div>
                           <div class="event-meta muted"><b>Pacote:</b> {e["pacote"] or "-"}</div>
                           <div class="event-meta muted"><b>Endereço:</b> {e["endereco"] or "-"}</div>
                         </div>
@@ -529,7 +563,7 @@ else:
                   </div>
                 </div>
                 """,
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
         with c2:
             if st.button("Ver", key=f"ver_card_{e['id']}"):
