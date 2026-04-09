@@ -9,6 +9,8 @@ import requests
 import streamlit as st
 from dotenv import load_dotenv
 
+from gerador_excel import gerar_excel
+
 load_dotenv()
 
 NOTES_FILE = "notes_store.json"
@@ -200,6 +202,43 @@ def build_property_value(
 
 
 # =========================
+# Utils (excel)
+# =========================
+def format_money(value: Optional[float]) -> str:
+    if value is None:
+        return ""
+    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def sanitize_filename(texto: str) -> str:
+    texto = (texto or "").strip()
+    if not texto:
+        return "evento"
+    proibidos = '\\/:*?"<>|'
+    for ch in proibidos:
+        texto = texto.replace(ch, "_")
+    texto = texto.replace(" ", "_")
+    return texto
+
+
+def montar_evento_para_excel(event: Dict[str, Any], observacao: str) -> Dict[str, str]:
+    qtd = ""
+    if event.get("qtd") is not None:
+        qtd = f"{int(event['qtd'])} crianças"
+
+    return {
+        "quantidade": qtd,
+        "data_horario": event.get("data_str", ""),
+        "endereco": event.get("endereco", "") or "",
+        "tema": event.get("tema", "") or "",
+        "cliente": event.get("cliente", "") or "",
+        "pacote": event.get("pacote", "") or "",
+        "observacao": observacao or "",
+        "total": format_money(event.get("total")),
+    }
+
+
+# =========================
 # Senhas / acesso
 # =========================
 APP_PASSWORD = os.getenv("APP_PASSWORD") or st.secrets.get("APP_PASSWORD", None)
@@ -378,7 +417,7 @@ if not title_prop_name:
 PROP_DATA = date_prop_name
 PROP_TEMA = "tema"
 PROP_CLIENTE = "cliente"
-PROP_QTD = "número"
+PROP_QTD = "número de crianças"
 PROP_PACOTE = "pacote"
 PROP_ENDERECO = "detalhes"
 PROP_TOTAL = "total"
@@ -692,12 +731,6 @@ if "selected_id" not in st.session_state:
     st.session_state["selected_id"] = None
 
 
-def format_money(value: Optional[float]) -> str:
-    if value is None:
-        return "-"
-    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
 def show_details(event: Dict[str, Any]) -> None:
     st.subheader("Detalhes do Evento")
     st.write(f"**Data/Hora:** {event['data_str']}")
@@ -718,18 +751,49 @@ def show_details(event: Dict[str, Any]) -> None:
     st.divider()
     st.subheader("Observações (salvas no seu computador)")
     current = notes.get(event["id"], "")
-    obs = st.text_area("Digite suas observações", value=current, height=180)
+    obs = st.text_area("Digite suas observações", value=current, height=180, key=f"obs_{event['id']}")
 
     b1, b2 = st.columns([1, 1])
     with b1:
-        if st.button("💾 Salvar observações"):
+        if st.button("💾 Salvar observações", key=f"salvar_obs_{event['id']}"):
             notes[event["id"]] = obs
             save_notes(notes)
             st.success("Observações salvas ✅")
     with b2:
-        if st.button("⬅ Voltar"):
+        if st.button("⬅ Voltar", key=f"voltar_{event['id']}"):
             st.session_state["selected_id"] = None
             st.rerun()
+
+    st.divider()
+    st.subheader("Ficha do evento em Excel")
+
+    observacao_excel = notes.get(event["id"], obs)
+    evento_excel = montar_evento_para_excel(event, observacao_excel)
+
+    nome_cliente = sanitize_filename(event.get("cliente", "cliente"))
+    data_arquivo = event["dt"].strftime("%Y-%m-%d")
+    nome_arquivo = f"ficha_evento_{data_arquivo}_{nome_cliente}.xlsx"
+
+    if st.button("📄 Gerar ficha do evento", key=f"gerar_excel_{event['id']}"):
+        try:
+            caminho_arquivo = gerar_excel(evento_excel, nome_arquivo=nome_arquivo)
+            st.session_state[f"excel_path_{event['id']}"] = caminho_arquivo
+            st.success("Ficha gerada com sucesso ✅")
+        except Exception as e:
+            st.error("Erro ao gerar a ficha Excel.")
+            st.write(str(e))
+
+    caminho_salvo = st.session_state.get(f"excel_path_{event['id']}")
+
+    if caminho_salvo and os.path.exists(caminho_salvo):
+        with open(caminho_salvo, "rb") as f:
+            st.download_button(
+                label="⬇️ Baixar ficha em Excel",
+                data=f.read(),
+                file_name=os.path.basename(caminho_salvo),
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"download_excel_{event['id']}",
+            )
 
 
 selected = st.session_state["selected_id"]
@@ -739,7 +803,7 @@ if selected:
         show_details(ev)
     else:
         st.warning("Evento não encontrado.")
-        if st.button("⬅ Voltar"):
+        if st.button("⬅ Voltar", key="voltar_evento_nao_encontrado"):
             st.session_state["selected_id"] = None
             st.rerun()
     st.stop()
