@@ -247,6 +247,12 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD") or st.secrets.get("ADMIN_PASSWORD",
 if "is_admin" not in st.session_state:
     st.session_state["is_admin"] = False
 
+if "selected_id" not in st.session_state:
+    st.session_state["selected_id"] = None
+
+if "editing_id" not in st.session_state:
+    st.session_state["editing_id"] = None
+
 
 # =========================
 # Logo + título
@@ -284,6 +290,7 @@ with st.expander("Área administrativa"):
         if st.session_state["is_admin"]:
             if st.button("Sair do modo admin", key="btn_admin_logout"):
                 st.session_state["is_admin"] = False
+                st.session_state["editing_id"] = None
                 st.rerun()
 
 if st.session_state["is_admin"]:
@@ -727,12 +734,113 @@ st.divider()
 # =========================
 notes = load_notes()
 
-if "selected_id" not in st.session_state:
-    st.session_state["selected_id"] = None
+
+def update_notion_event(page_id: str, campos: Dict[str, Any]) -> None:
+    propriedades: Dict[str, Any] = {}
+
+    for campo, valor in campos.items():
+        prop_value = build_property_value(campo, valor, db_props)
+        if prop_value is not None:
+            propriedades[campo] = prop_value
+
+    update_url = f"https://api.notion.com/v1/pages/{page_id}"
+    payload = {"properties": propriedades}
+
+    resp = requests.patch(update_url, headers=headers, json=payload)
+    if resp.status_code != 200:
+        raise RuntimeError(f"{resp.status_code} - {resp.text}")
 
 
 def show_details(event: Dict[str, Any]) -> None:
     st.subheader("Detalhes do Evento")
+
+    is_admin = st.session_state.get("is_admin", False)
+    editing_this_event = st.session_state.get("editing_id") == event["id"]
+
+    if is_admin and not editing_this_event:
+        col_edit, col_space = st.columns([1, 5])
+        with col_edit:
+            if st.button("✏️ Editar cadastro", key=f"editar_{event['id']}"):
+                st.session_state["editing_id"] = event["id"]
+                st.rerun()
+
+    if is_admin and editing_this_event:
+        st.info("Modo de edição")
+
+        responsavel_options = []
+        if PROP_RESPONSAVEL in db_props and get_prop_type(PROP_RESPONSAVEL, db_props) == "select":
+            responsavel_options = [
+                opt.get("name", "")
+                for opt in db_props[PROP_RESPONSAVEL].get("select", {}).get("options", [])
+                if opt.get("name")
+            ]
+
+        with st.form(f"form_edicao_{event['id']}"):
+            st.write(f"**Data/Hora:** {event['data_str']}")
+
+            tema_edit = st.text_input("Tema", value=event.get("tema", "") or "")
+            cliente_edit = st.text_input("Cliente", value=event.get("cliente", "") or "")
+            telefone_edit = st.text_input("Telefone", value=event.get("telefone", "") or "")
+            pacote_edit = st.text_input("Pacote", value=event.get("pacote", "") or "")
+            endereco_edit = st.text_area("Endereço", value=event.get("endereco", "") or "", height=100)
+
+            if responsavel_options:
+                indice_padrao = 0
+                valor_atual = event.get("responsavel", "") or ""
+                if valor_atual in responsavel_options:
+                    indice_padrao = responsavel_options.index(valor_atual) + 1
+                responsavel_edit = st.selectbox(
+                    "Responsável",
+                    [""] + responsavel_options,
+                    index=indice_padrao,
+                )
+            else:
+                responsavel_edit = st.text_input("Responsável", value=event.get("responsavel", "") or "")
+
+            qtd_inicial = int(event["qtd"]) if event.get("qtd") is not None else 0
+            qtd_edit = st.number_input("Quantidade", min_value=0, step=1, value=qtd_inicial)
+
+            total_inicial = float(event["total"]) if event.get("total") is not None else 0.0
+            valor_pago_inicial = float(event["valor_pago"]) if event.get("valor_pago") is not None else 0.0
+
+            total_edit = st.number_input("Total", min_value=0.0, step=50.0, format="%.2f", value=total_inicial)
+            valor_pago_edit = st.number_input("Valor pago", min_value=0.0, step=50.0, format="%.2f", value=valor_pago_inicial)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                salvar = st.form_submit_button("💾 Salvar alterações")
+            with c2:
+                cancelar = st.form_submit_button("Cancelar")
+
+        if cancelar:
+            st.session_state["editing_id"] = None
+            st.rerun()
+
+        if salvar:
+            try:
+                campos = {
+                    PROP_TEMA: tema_edit,
+                    PROP_CLIENTE: cliente_edit,
+                    PROP_TELEFONE: telefone_edit,
+                    PROP_PACOTE: pacote_edit,
+                    PROP_ENDERECO: endereco_edit,
+                    PROP_RESPONSAVEL: responsavel_edit,
+                    PROP_QTD: qtd_edit,
+                    PROP_TOTAL: total_edit,
+                    PROP_VALOR_PAGO: valor_pago_edit,
+                }
+
+                update_notion_event(event["id"], campos)
+
+                st.success("Cadastro atualizado com sucesso ✅")
+                st.session_state["editing_id"] = None
+                st.rerun()
+            except Exception as e:
+                st.error("Erro ao atualizar o evento no Notion.")
+                st.write(str(e))
+
+        st.divider()
+
     st.write(f"**Data/Hora:** {event['data_str']}")
     st.write(f"**Tema:** {event['tema'] or '-'}")
     st.write(f"**Cliente:** {event['cliente'] or '-'}")
@@ -741,17 +849,24 @@ def show_details(event: Dict[str, Any]) -> None:
     st.write(f"**Endereço:** {event['endereco'] or '-'}")
     st.write(f"**Responsável:** {event['responsavel'] or '-'}")
     st.write(f"**Quantidade:** {int(event['qtd']) if event['qtd'] is not None else '-'}")
-    st.write(f"**Total:** {format_money(event['total'])}")
-    st.write(f"**Valor pago:** {format_money(event['valor_pago'])}")
 
-    if event["total"] is not None and event["valor_pago"] is not None:
-        saldo = event["total"] - event["valor_pago"]
-        st.write(f"**Saldo pendente:** {format_money(saldo)}")
+    if is_admin:
+        st.write(f"**Total:** {format_money(event['total'])}")
+        st.write(f"**Valor pago:** {format_money(event['valor_pago'])}")
+
+        if event["total"] is not None and event["valor_pago"] is not None:
+            saldo = event["total"] - event["valor_pago"]
+            st.write(f"**Saldo pendente:** {format_money(saldo)}")
 
     st.divider()
     st.subheader("Observações (salvas no seu computador)")
     current = notes.get(event["id"], "")
-    obs = st.text_area("Digite suas observações", value=current, height=180, key=f"obs_{event['id']}")
+    obs = st.text_area(
+        "Digite suas observações",
+        value=current,
+        height=180,
+        key=f"obs_{event['id']}"
+    )
 
     b1, b2 = st.columns([1, 1])
     with b1:
@@ -762,38 +877,40 @@ def show_details(event: Dict[str, Any]) -> None:
     with b2:
         if st.button("⬅ Voltar", key=f"voltar_{event['id']}"):
             st.session_state["selected_id"] = None
+            st.session_state["editing_id"] = None
             st.rerun()
 
-    st.divider()
-    st.subheader("Ficha do evento em Excel")
+    if is_admin:
+        st.divider()
+        st.subheader("Ficha do evento em Excel")
 
-    observacao_excel = notes.get(event["id"], obs)
-    evento_excel = montar_evento_para_excel(event, observacao_excel)
+        observacao_excel = notes.get(event["id"], obs)
+        evento_excel = montar_evento_para_excel(event, observacao_excel)
 
-    nome_cliente = sanitize_filename(event.get("cliente", "cliente"))
-    data_arquivo = event["dt"].strftime("%Y-%m-%d")
-    nome_arquivo = f"ficha_evento_{data_arquivo}_{nome_cliente}.xlsx"
+        nome_cliente = sanitize_filename(event.get("cliente", "cliente"))
+        data_arquivo = event["dt"].strftime("%Y-%m-%d")
+        nome_arquivo = f"ficha_evento_{data_arquivo}_{nome_cliente}.xlsx"
 
-    if st.button("📄 Gerar ficha do evento", key=f"gerar_excel_{event['id']}"):
-        try:
-            caminho_arquivo = gerar_excel(evento_excel, nome_arquivo=nome_arquivo)
-            st.session_state[f"excel_path_{event['id']}"] = caminho_arquivo
-            st.success("Ficha gerada com sucesso ✅")
-        except Exception as e:
-            st.error("Erro ao gerar a ficha Excel.")
-            st.write(str(e))
+        if st.button("📄 Gerar ficha do evento", key=f"gerar_excel_{event['id']}"):
+            try:
+                caminho_arquivo = gerar_excel(evento_excel, nome_arquivo=nome_arquivo)
+                st.session_state[f"excel_path_{event['id']}"] = caminho_arquivo
+                st.success("Ficha gerada com sucesso ✅")
+            except Exception as e:
+                st.error("Erro ao gerar a ficha Excel.")
+                st.write(str(e))
 
-    caminho_salvo = st.session_state.get(f"excel_path_{event['id']}")
+        caminho_salvo = st.session_state.get(f"excel_path_{event['id']}")
 
-    if caminho_salvo and os.path.exists(caminho_salvo):
-        with open(caminho_salvo, "rb") as f:
-            st.download_button(
-                label="⬇️ Baixar ficha em Excel",
-                data=f.read(),
-                file_name=os.path.basename(caminho_salvo),
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key=f"download_excel_{event['id']}",
-            )
+        if caminho_salvo and os.path.exists(caminho_salvo):
+            with open(caminho_salvo, "rb") as f:
+                st.download_button(
+                    label="⬇️ Baixar ficha em Excel",
+                    data=f.read(),
+                    file_name=os.path.basename(caminho_salvo),
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"download_excel_{event['id']}",
+                )
 
 
 selected = st.session_state["selected_id"]
@@ -805,6 +922,7 @@ if selected:
         st.warning("Evento não encontrado.")
         if st.button("⬅ Voltar", key="voltar_evento_nao_encontrado"):
             st.session_state["selected_id"] = None
+            st.session_state["editing_id"] = None
             st.rerun()
     st.stop()
 
@@ -844,6 +962,7 @@ if view_mode == "Lista":
 
         if st.button("🔎 Ver detalhes", key=f"ver_{e['id']}"):
             st.session_state["selected_id"] = e["id"]
+            st.session_state["editing_id"] = None
             st.rerun()
 
 else:
@@ -881,4 +1000,5 @@ else:
         with c2:
             if st.button("Ver", key=f"ver_card_{e['id']}"):
                 st.session_state["selected_id"] = e["id"]
+                st.session_state["editing_id"] = None
                 st.rerun()
