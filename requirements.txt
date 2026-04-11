@@ -3,7 +3,7 @@ python-dotenv
 requests
 openpyxl
 pytz
-weasyprint
 jinja2
 num2words
+reportlab
 # atualização
