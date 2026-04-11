@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm 15mm 20mm 15mm;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      color: #333;
+      font-size: 12pt;
+      line-height: 1.35;
+    }
+
+    .topo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .logo {
+      height: 80px;
+      margin-bottom: 8px;
+    }
+
+    .titulo {
+      font-size: 22px;
+      font-weight: bold;
+      color: #4f9ea0;
+      letter-spacing: 0.5px;
+    }
+
+    .bloco {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .rotulo {
+      width: 180px;
+      font-weight: bold;
+      padding: 8px 10px;
+      border-radius: 8px;
+      margin-right: 12px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .conteudo {
+      flex: 1;
+      padding-top: 6px;
+      text-align: justify;
+    }
+
+    .verde { background: #cfe26c; }
+    .rosa { background: #f2c5cf; }
+    .amarelo { background: #f2d25a; }
+    .azul { background: #8fd8de; }
+    .laranja { background: #f5a15b; }
+
+    .clausulas {
+      margin-top: 24px;
+      text-align: justify;
+    }
+
+    .clausulas p {
+      margin: 6px 0;
+    }
+
+    .rodape-data {
+      text-align: center;
+      margin-top: 28px;
+      font-weight: bold;
+    }
+
+    .assinaturas {
+      margin-top: 40px;
+      display: flex;
+      justify-content: space-between;
+      gap: 40px;
+    }
+
+    .assinatura {
+      width: 45%;
+      text-align: center;
+    }
+
+    .linha {
+      border-top: 2px solid #e58b3c;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="topo">
+    <img class="logo" src="{{ logo_path }}" alt="Logo">
+    <div class="titulo">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</div>
+  </div>
+
+<div class="bloco">
+  <div class="rotulo verde">CONTRATANTE:</div>
+  <div class="conteudo">
+    {{ cliente }}<br>
+
+    {% if cpf %}
+      CPF: {{ cpf }}<br>
+    {% endif %}
+
+    {% if telefone %}
+      Telefone: {{ telefone }}
+    {% endif %}
+  </div>
+</div>
+
+  <div class="bloco">
+    <div class="rotulo rosa">CONTRATADO:</div>
+    <div class="conteudo">FUI EU QUE FIZ OFICINAS, MEI: 358.722.860/0001-42. Contato: (61) 99522-7110.</div>
+  </div>
+
+  <div class="bloco">
+    <div class="rotulo amarelo">OBJETO:</div>
+    <div class="conteudo">{{ objeto_contrato }}</div>
+  </div>
+
+  <div class="bloco">
+    <div class="rotulo azul">ESPECIFICAÇÕES:</div>
+    <div class="conteudo">
+      A CONTRATADA fornecerá todos os materiais, insumos, equipamentos, estrutura e equipe de monitoria necessários à execução das oficinas e/ou serviços descritos na cláusula “Objeto”, pelo período de 04 (quatro) horas consecutivas, na data, horário e local previamente acordados.
+    </div>
+  </div>
+
+  <div class="bloco">
+    <div class="rotulo laranja">VALORES E CONDIÇÕES DE PAGAMENTO:</div>
+    <div class="conteudo">
+      O valor total é de {{ valor_total_extenso_curto }}, sendo 50% no ato da contratação para reserva da data e o restante até o dia anterior ao evento.
+      {% if valor_pago %}
+      Valor já pago: {{ valor_pago }}.
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="bloco">
+    <div class="rotulo verde">LOCAL, DATA E HORÁRIO DO EVENTO:</div>
+    <div class="conteudo">
+      A CONTRATANTE informa que o local do evento é {{ endereco }}, dia {{ data_evento }}, com início às {{ horario }}.
+      Os objetos que fazem parte deste contrato serão levados ao local com antecedência.
+    </div>
+  </div>
+
+  {% if observacao %}
+  <div class="bloco">
+    <div class="rotulo rosa">OBSERVAÇÕES:</div>
+    <div class="conteudo">{{ observacao }}</div>
+  </div>
+  {% endif %}
+
+  <div class="clausulas">
+    <p><strong>1ª CLÁUSULA:</strong> A CONTRATADA deverá chegar ao local do evento com 01 hora de antecedência para a preparação e organização das oficinas.</p>
+
+    <p><strong>2ª CLÁUSULA:</strong> Caso sejam incluídas outras crianças para a participação da oficina, que inicialmente não estavam orçadas na elaboração deste contrato, a CONTRATANTE deverá realizar o pagamento da diferença, conforme a ser combinado entre as partes.</p>
+
+    <p><strong>3ª CLÁUSULA:</strong> Em caso de cancelamento por parte da CONTRATANTE, o valor de 50% pago como entrada servirá como multa de rescisão. No caso por parte da CONTRATADA, o mesmo valor será restituído à CONTRATANTE.</p>
+
+    <p><strong>4ª CLÁUSULA:</strong> Elegem desde já o Foro da Comarca de Brazlândia-DF, para dirimir qualquer pendência deste contrato, com renúncia de outro por mais especial que seja.</p>
+
+    <p><strong>5ª CLÁUSULA:</strong> E por estarem as partes, CONTRATANTE e CONTRATADA, em pleno acordo com o disposto neste instrumento particular, assinam o presente.</p>
+  </div>
+
+  <div class="rodape-data">
+    Brasília – DF, {{ data_geracao }}.
+  </div>
+
+  <div class="assinaturas">
+    <div class="assinatura">
+      <div class="linha"></div>
+      CONTRATANTE
+    </div>
+    <div class="assinatura">
+      <div class="linha"></div>
+      CONTRATADO
+    </div>
+  </div>
+</body>
+</html>

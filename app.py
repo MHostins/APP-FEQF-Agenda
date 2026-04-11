@@ -10,6 +10,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from gerador_excel import gerar_excel
+from contrato_pdf import gerar_pdf_contrato
 
 load_dotenv()
 
@@ -236,6 +237,28 @@ def montar_evento_para_excel(event: Dict[str, Any], observacao: str) -> Dict[str
         "observacao": observacao or "",
         "total": format_money(event.get("total")),
     }
+
+
+def montar_evento_para_contrato(event: Dict[str, Any], observacao: str) -> Dict[str, Any]:
+    data_iso = event.get("dt").strftime("%Y-%m-%d") if event.get("dt") else ""
+    horario = event.get("dt").strftime("%Hh%M") if event.get("dt") else ""
+
+    return {
+        "cliente": event.get("cliente", "") or "",
+        "cpf": "",
+        "telefone": event.get("telefone", "") or "",
+        "data": data_iso,
+        "horario": horario,
+        "tema": event.get("tema", "") or "",
+        "quantidade_criancas": int(event["qtd"]) if event.get("qtd") is not None else "",
+        "pacote": event.get("pacote", "") or "",
+        "valor_total": event.get("total") or 0,
+        "valor_pago": event.get("valor_pago") or 0,
+        "endereco": event.get("endereco", "") or "",
+        "responsavel": event.get("responsavel", "") or "",
+        "observacao": observacao or "",
+    }
+
 
 
 # =========================
@@ -910,6 +933,44 @@ def show_details(event: Dict[str, Any]) -> None:
                     file_name=os.path.basename(caminho_salvo),
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"download_excel_{event['id']}",
+                )
+
+
+        st.divider()
+        st.subheader("Contrato em PDF")
+
+        observacao_contrato = notes.get(event["id"], obs)
+        evento_contrato = montar_evento_para_contrato(event, observacao_contrato)
+
+        nome_cliente_pdf = sanitize_filename(event.get("cliente", "cliente"))
+        data_pdf = event["dt"].strftime("%d-%m-%Y") if event.get("dt") else "sem-data"
+        nome_pdf = f"Contrato_{data_pdf}_{nome_cliente_pdf}.pdf"
+
+        pasta_contratos = "contratos"
+        if not os.path.exists(pasta_contratos):
+            os.makedirs(pasta_contratos)
+
+        caminho_pdf = os.path.join(pasta_contratos, nome_pdf)
+
+        if st.button("📄 Gerar contrato", key=f"gerar_contrato_{event['id']}"):
+            try:
+                gerar_pdf_contrato(evento_contrato, caminho_pdf)
+                st.session_state[f"pdf_path_{event['id']}"] = caminho_pdf
+                st.success("Contrato gerado com sucesso ✅")
+            except Exception as e:
+                st.error("Erro ao gerar o contrato em PDF.")
+                st.write(str(e))
+
+        caminho_pdf_salvo = st.session_state.get(f"pdf_path_{event['id']}")
+
+        if caminho_pdf_salvo and os.path.exists(caminho_pdf_salvo):
+            with open(caminho_pdf_salvo, "rb") as f:
+                st.download_button(
+                    label="⬇️ Baixar contrato em PDF",
+                    data=f.read(),
+                    file_name=os.path.basename(caminho_pdf_salvo),
+                    mime="application/pdf",
+                    key=f"download_pdf_{event['id']}",
                 )
 
 
