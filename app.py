@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
@@ -82,6 +82,17 @@ def parse_iso_datetime(iso_str: str) -> Optional[datetime]:
         return dt.replace(tzinfo=None)
     except Exception:
         return None
+
+
+def format_notion_datetime(selected_date: date, selected_time: time) -> str:
+    return datetime.combine(selected_date, selected_time).isoformat(timespec="minutes")
+
+
+def notion_date_value(selected_date: date, selected_time: time) -> Dict[str, str]:
+    return {
+        "start": format_notion_datetime(selected_date, selected_time),
+        "time_zone": "America/Sao_Paulo",
+    }
 
 
 def format_dt_br(dt: datetime) -> str:
@@ -197,6 +208,8 @@ def build_property_value(
     if prop_type == "date":
         if not value:
             return {"date": None}
+        if isinstance(value, dict):
+            return {"date": value}
         return {"date": {"start": value}}
 
     return None
@@ -457,6 +470,7 @@ PROP_TELEFONE = "telefone"
 
 st.caption(f"Campo de data detectado: **{date_prop_name}**")
 st.caption(f"Campo de título detectado: **{title_prop_name}**")
+st.caption("Datas e horários são enviados ao Notion com `time_zone = America/Sao_Paulo`.")
 
 
 # =========================
@@ -509,8 +523,7 @@ if st.session_state["is_admin"]:
             if not cliente.strip():
                 st.error("Preencha o nome do cliente.")
             else:
-                dt_completa = datetime.combine(data_evento, hora_evento)
-                data_iso = dt_completa.isoformat()
+                data_iso = notion_date_value(data_evento, hora_evento)
 
                 propriedades: Dict[str, Any] = {}
 
