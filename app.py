@@ -259,6 +259,7 @@ def montar_evento_para_contrato(event: Dict[str, Any], observacao: str) -> Dict[
     return {
         "cliente": event.get("cliente", "") or "",
         "cpf": "",
+        "cpf": event.get("cpf", ""),
         "telefone": event.get("telefone", "") or "",
         "data": data_iso,
         "horario": horario,
@@ -462,11 +463,12 @@ PROP_TEMA = "tema"
 PROP_CLIENTE = "cliente"
 PROP_QTD = "número de crianças"
 PROP_PACOTE = "pacote"
-PROP_ENDERECO = "detalhes"
+PROP_ENDERECO = "endereço" if "endereço" in db_props else "detalhes"
 PROP_TOTAL = "total"
 PROP_VALOR_PAGO = "valor pago"
 PROP_RESPONSAVEL = "responsavel"
 PROP_TELEFONE = "telefone"
+PROP_CPF = "cpf"
 
 st.caption(f"Campo de data detectado: **{date_prop_name}**")
 st.caption(f"Campo de título detectado: **{title_prop_name}**")
@@ -499,6 +501,7 @@ if st.session_state["is_admin"]:
             cliente = st.text_input("Nome do cliente")
         with col4:
             telefone = st.text_input("Telefone")
+            cpf = st.text_input("CPF")
 
         tema = st.text_input("Tema")
         pacote = st.text_input("Pacote(s) — se houver mais de um, separar por vírgula")
@@ -549,6 +552,7 @@ if st.session_state["is_admin"]:
                     PROP_VALOR_PAGO: valor_pago,
                     PROP_RESPONSAVEL: responsavel,
                     PROP_TELEFONE: telefone,
+                    PROP_CPF: cpf,
                 }
 
                 for campo, valor in campos_para_salvar.items():
@@ -645,6 +649,7 @@ for item in raw_results:
     endereco = get_prop_text(props, PROP_ENDERECO, db_props)
     responsavel = get_prop_text(props, PROP_RESPONSAVEL, db_props)
     telefone = get_prop_text(props, PROP_TELEFONE, db_props)
+    cpf = get_prop_text(props, PROP_CPF, db_props)
 
     qtd = get_prop_number(props, PROP_QTD)
     total_evento = get_prop_number(props, PROP_TOTAL)
@@ -665,6 +670,7 @@ for item in raw_results:
             "total": total_evento,
             "valor_pago": valor_pago_evento,
             "raw": item,
+            "cpf": cpf,
         }
     )
 
@@ -813,6 +819,7 @@ def show_details(event: Dict[str, Any]) -> None:
 
         with st.form(f"form_edicao_{event['id']}"):
             st.write(f"**Data/Hora:** {event['data_str']}")
+            st.write(f"**CPF:** {event['cpf'] or '-'}")
 
             tema_edit = st.text_input("Tema", value=event.get("tema", "") or "")
             cliente_edit = st.text_input("Cliente", value=event.get("cliente", "") or "")
