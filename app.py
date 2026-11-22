@@ -11,6 +11,11 @@ from dotenv import load_dotenv
 
 from gerador_excel import gerar_excel
 from contrato_pdf import gerar_pdf_contrato
+from notificador_whatsapp import (
+    enviar_notificacao_whatsapp,
+    notificar_evento_whatsapp,
+    whatsapp_configurado,
+)
 
 load_dotenv()
 
@@ -332,6 +337,24 @@ with st.expander("Área administrativa"):
 
 if st.session_state["is_admin"]:
     st.success("Administrador conectado")
+    with st.expander("📲 Notificações WhatsApp (Status e Teste)"):
+        if whatsapp_configurado():
+            st.success("Notificações WhatsApp configuradas e ativas ✅")
+            if st.button("Enviar mensagem de teste no WhatsApp", key="btn_test_wpp"):
+                ok, resultados = enviar_notificacao_whatsapp(
+                    "✅ *Teste Agenda FEQF:* As notificações automáticas de novos eventos estão funcionando!"
+                )
+                for destino, status, detalhe in resultados:
+                    if status:
+                        st.success(f"{destino}: {detalhe}")
+                    else:
+                        st.error(f"{destino}: {detalhe}")
+        else:
+            st.warning(
+                "WhatsApp ainda não configurado nos Secrets / .env. "
+                "Configure `GREENAPI_ID_INSTANCE`, `GREENAPI_API_TOKEN` e `GREENAPI_CHAT_IDS` "
+                "(ou `CALLMEBOT_RECIPIENTS`)."
+            )
 
 
 # =========================
@@ -572,6 +595,22 @@ if st.session_state["is_admin"]:
 
                 if resp.status_code == 200:
                     st.success("Evento salvo no Notion com sucesso ✅")
+                    if whatsapp_configurado():
+                        novo_id = resp.json().get("id", "")
+                        dt_local_str = datetime.combine(data_evento, hora_evento).strftime("%d/%m/%Y %H:%M")
+                        notificar_evento_whatsapp(
+                            {
+                                "id": novo_id,
+                                "data_str": dt_local_str,
+                                "tema": tema,
+                                "cliente": cliente,
+                                "qtd": numero,
+                                "pacote": pacote,
+                                "endereco": detalhes,
+                                "responsavel": responsavel,
+                            },
+                            registrar_id=True,
+                        )
                     st.rerun()
                 else:
                     st.error("Não foi possível salvar o evento no Notion.")
@@ -900,6 +939,14 @@ def show_details(event: Dict[str, Any]) -> None:
         if event["total"] is not None and event["valor_pago"] is not None:
             saldo = event["total"] - event["valor_pago"]
             st.write(f"**Saldo pendente:** {format_money(saldo)}")
+
+    if st.button("📲 Enviar aviso deste evento no WhatsApp", key=f"wpp_{event['id']}"):
+        ok, resultados = notificar_evento_whatsapp(event, registrar_id=True)
+        for destino, status, detalhe in resultados:
+            if status:
+                st.success(f"{destino}: {detalhe}")
+            else:
+                st.error(f"{destino}: {detalhe}")
 
     st.divider()
     st.subheader("Observações (salvas no seu computador)")
