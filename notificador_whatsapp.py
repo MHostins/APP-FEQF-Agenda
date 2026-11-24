@@ -50,6 +50,13 @@ def save_notified_ids(ids: List[str], filepath: str = NOTIFIED_FILE) -> None:
         )
 
 
+DEFAULT_CONFIG = {
+    "GREENAPI_ID_INSTANCE": "710722812475",
+    "GREENAPI_API_TOKEN": "ee7187ad6cae48998e4aa7370af31a328c7d1e6700af4b83ac",
+    "GREENAPI_CHAT_IDS": "120363024209992567@g.us",
+}
+
+
 def get_config_value(key: str) -> str:
     val = os.getenv(key, "")
     if val:
@@ -61,7 +68,7 @@ def get_config_value(key: str) -> str:
             return str(st.secrets[key]).strip()
     except Exception:
         pass
-    return ""
+    return DEFAULT_CONFIG.get(key, "")
 
 
 def normalize_greenapi_chat_id(raw_target: str) -> str:
@@ -121,7 +128,9 @@ def enviar_via_greenapi(mensagem: str) -> List[Tuple[str, bool, str]]:
         return []
 
     resultados: List[Tuple[str, bool, str]] = []
-    url = f"https://api.green-api.com/waInstance{id_instance}/sendMessage/{api_token}"
+    api_host = get_config_value("GREENAPI_API_URL") or f"https://{id_instance[:4]}.api.greenapi.com"
+    api_host = api_host.rstrip("/")
+    url = f"{api_host}/waInstance{id_instance}/sendMessage/{api_token}"
 
     for item in raw_chats.split(","):
         chat_id = normalize_greenapi_chat_id(item)
