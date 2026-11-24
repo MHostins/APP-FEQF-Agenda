@@ -53,7 +53,7 @@ def save_notified_ids(ids: List[str], filepath: str = NOTIFIED_FILE) -> None:
 DEFAULT_CONFIG = {
     "GREENAPI_ID_INSTANCE": "710722812475",
     "GREENAPI_API_TOKEN": "ee7187ad6cae48998e4aa7370af31a328c7d1e6700af4b83ac",
-    "GREENAPI_CHAT_IDS": "120363024209992567@g.us",
+    "GREENAPI_CHAT_IDS": "120363413915638206@g.us",
 }
 
 
