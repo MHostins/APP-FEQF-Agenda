@@ -91,6 +91,8 @@ def formatar_mensagem_evento(event: Dict[str, Any], app_url: str = "") -> str:
     data_str = event.get("data_str") or "-"
     tema = event.get("tema") or "-"
     pacote = event.get("pacote") or "-"
+    qtd = event.get("qtd")
+    qtd_str = str(int(qtd)) if qtd is not None and str(qtd) != "" else "-"
 
     linhas = [
         "🎉 *NOVO EVENTO CADASTRADO - FEQF*",
@@ -98,6 +100,7 @@ def formatar_mensagem_evento(event: Dict[str, Any], app_url: str = "") -> str:
         f"Data: {data_str}",
         f"Tema: {tema}",
         f"Pacote: {pacote}",
+        f"Quantidade: {qtd_str}",
     ]
 
     if app_url:
