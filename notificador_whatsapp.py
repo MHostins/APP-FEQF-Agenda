@@ -90,29 +90,16 @@ def normalize_greenapi_chat_id(raw_target: str) -> str:
 def formatar_mensagem_evento(event: Dict[str, Any], app_url: str = "") -> str:
     data_str = event.get("data_str") or "-"
     tema = event.get("tema") or "-"
-    cliente = event.get("cliente") or "-"
-    qtd = event.get("qtd")
-    qtd_str = f"{int(qtd)} crianças" if qtd is not None and str(qtd) != "" else "-"
     pacote = event.get("pacote") or "-"
-    endereco = event.get("endereco") or "-"
-    responsavel = event.get("responsavel") or ""
-    observacao = event.get("observacoes_notion") or event.get("observacao") or ""
 
     linhas = [
         "🎉 *NOVO EVENTO CADASTRADO - FEQF*",
         "",
-        f"📅 *Data/Hora:* {data_str}",
-        f"🎨 *Tema:* {tema}",
-        f"👤 *Cliente:* {cliente}",
-        f"🧒 *Qtd:* {qtd_str}",
-        f"📦 *Pacote:* {pacote}",
-        f"📍 *Endereço:* {endereco}",
+        f"Data: {data_str}",
+        f"Tema: {tema}",
+        f"Pacote: {pacote}",
     ]
 
-    if responsavel:
-        linhas.append(f"👩‍🎨 *Responsável:* {responsavel}")
-    if observacao:
-        linhas.append(f"📝 *Obs:* {observacao}")
     if app_url:
         linhas.extend(["", f"🔗 *Agenda:* {app_url}"])
 
